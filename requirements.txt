@@ -1,0 +1,9 @@
+streamlit==1.47.0
+langchain==0.3.26
+langchain-core==0.3.86
+langchain-groq==0.2.5
+langchain-text-splitters==0.3.8
+langchain-ibm==0.3.15
+PyPDF2==3.0.1
+python-dotenv==1.1.1
+tenacity==9.1.2

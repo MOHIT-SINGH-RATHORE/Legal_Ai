@@ -1,6 +1,7 @@
 import streamlit as st
 from langchain.prompts import PromptTemplate
-from langchain_ibm import WatsonxLLM
+# from langchain_ibm import WatsonxLLM   # <-- COMMENTED: IBM Watsonx (API key expired)
+from langchain_groq import ChatGroq       # <-- ADDED: Groq (free replacement)
 from langchain.chains.summarize import load_summarize_chain
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from dotenv import load_dotenv
@@ -18,14 +19,18 @@ from tenacity import retry, stop_after_attempt, wait_exponential # <-- Added for
 load_dotenv()
 
 # Get credentials from environment variables
-WATSONX_API_KEY = os.getenv("WATSONX_API_KEY", None)
-PROJECT_ID = os.getenv("WATSONX_PROJECT_ID", None)
+# WATSONX_API_KEY = os.getenv("WATSONX_API_KEY", None)   # <-- COMMENTED: IBM Watsonx key
+# PROJECT_ID = os.getenv("WATSONX_PROJECT_ID", None)       # <-- COMMENTED: IBM Project ID
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", None)             # <-- ADDED: Groq API key
 
 # --- Helper function to display errors and stop if credentials are not set ---
 def check_credentials():
-    if not WATSONX_API_KEY or not PROJECT_ID:
-        st.error("🚨 Missing Credentials! Please set WATSONX_API_KEY and WATSONX_PROJECT_ID in your .env file.")
-        st.stop()
+    # if not WATSONX_API_KEY or not PROJECT_ID:                                                           # <-- COMMENTED: Old IBM check
+    #     st.error("🚨 Missing Credentials! Please set WATSONX_API_KEY and WATSONX_PROJECT_ID in .env")   # <-- COMMENTED
+    #     st.stop()                                                                                         # <-- COMMENTED
+    if not GROQ_API_KEY:                                                                                    # <-- ADDED: Groq credential check
+        st.error("🚨 Missing Credentials! Please set GROQ_API_KEY in your .env file.")                    # <-- ADDED
+        st.stop()                                                                                           # <-- ADDED
 
 # --- Function to initialize the LLM, wrapped with caching ---
 @st.cache_resource
@@ -33,17 +38,25 @@ def initialize_llm(model_id):
     """Initializes and returns the Watsonx LLM instance. Cached for performance."""
     check_credentials()
     st.info(f"Initializing model: {model_id}...")
-    llm = WatsonxLLM(
-        model_id=model_id,
-        url="https://au-syd.ml.cloud.ibm.com", 
-        project_id=PROJECT_ID,
-        apikey=WATSONX_API_KEY,
-        params={
-            "decoding_method": "greedy",
-            "max_new_tokens": 2048,
-            "temperature": 0.1,
-            "repetition_penalty": 1.05
-        }
+    # --- COMMENTED: IBM Watsonx LLM initialization (restore when API key is renewed) ---
+    # llm = WatsonxLLM(
+    #     model_id=model_id,
+    #     url="https://au-syd.ml.cloud.ibm.com",
+    #     project_id=PROJECT_ID,
+    #     apikey=WATSONX_API_KEY,
+    #     params={
+    #         "decoding_method": "greedy",
+    #         "max_new_tokens": 2048,
+    #         "temperature": 0.1,
+    #         "repetition_penalty": 1.05
+    #     }
+    # )
+    # --- ADDED: Groq LLM initialization ---
+    llm = ChatGroq(
+        model_name=model_id,          # Model name selected from the sidebar dropdown
+        groq_api_key=GROQ_API_KEY,    # API key loaded from .env file
+        temperature=0.1,              # Low temperature = consistent, deterministic output (good for legal docs)
+        max_tokens=2048,              # Maximum length of AI response
     )
     st.info("Model initialized and ready.")
     return llm
@@ -170,7 +183,8 @@ def main():
 
     with st.sidebar:
         st.subheader("⚙️ Settings")
-        model_options = ['mistralai/mistral-large', 'ibm/granite-13b-instruct-v2', 'ibm/granite-8b-code-instruct', 'ibm/granite-3-8b-instruct', 'ibm/granite-3-2b-instruct', 'meta-llama/llama-3-2-11b-vision-instruct', 'meta-llama/llama-3-2-90b-vision-instruct', 'meta-llama/llama-guard-3-11b-vision']
+        # model_options = ['mistralai/mistral-large', 'ibm/granite-13b-instruct-v2', 'ibm/granite-8b-code-instruct', 'ibm/granite-3-8b-instruct', 'ibm/granite-3-2b-instruct', 'meta-llama/llama-3-2-11b-vision-instruct', 'meta-llama/llama-3-2-90b-vision-instruct', 'meta-llama/llama-guard-3-11b-vision']  # <-- COMMENTED: IBM Watsonx models
+        model_options = ['llama3-70b-8192', 'llama3-8b-8192', 'mixtral-8x7b-32768', 'gemma2-9b-it']  # <-- ADDED: Groq supported models
         selected_model = st.selectbox("Choose a Model:", model_options)
         chain_type_options = ["map_reduce", "refine"]
         selected_chain_type = st.selectbox("Choose a Strategy:", chain_type_options)
@@ -241,6 +255,7 @@ def main():
                         key=f"download_{filename}"
                     )
     elif not uploaded_files:
+        pass  # <-- FIXED: Empty block. No action needed when no files are uploaded.
 
 if __name__ == "__main__":
     main()
